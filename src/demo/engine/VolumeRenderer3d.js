@@ -762,14 +762,20 @@ export default class VolumeRenderer3d {
    * @param {*} zDim 
    */
   arrayShrink(array, xDim, yDim, zDim) {
-    var zLen = Math.floor(zDim / 2.);
-    var yLen = Math.floor(yDim / 2.);
-    var xLen = Math.floor(xDim / 2.);
-    var shrinked = new Array(Math.floor(array.length / 2))
-    for (let i = 0; i < xLen; i += 2) {
+    xDim = Math.floor(xDim)
+    yDim = Math.floor(yDim)
+    zDim = Math.floor(zDim)
+    var zLen = 2 * zDim;
+    var yLen = 2 * yDim;
+    var xLen = 2 * xDim;
+    var shrinked = new Array(Math.floor(array.length / 8));
+    var ii = 0;
+    var jj = 0;
+    var kk = 0;
+    for (let k = 0; k < zLen; k += 2){
       for (let j = 0; j < yLen; j += 2) {
-        for (let k = 0; k < zLen; k += 2){
-          shrinked[k * yLen * xLen + j * xLen + i] = (array[k * yLen * xLen + j * xLen + i]
+        for (let i = 0; i < xLen; i += 2) {
+          shrinked[kk * yDim * xDim + jj * xDim + ii] = (array[k * yLen * xLen + j * xLen + i]
                                                     + array[k * yLen * xLen + j * xLen + i + 1]
                                                     + array[k * yLen * xLen + (j + 1) * xLen + i]
                                                     + array[(k + 1) * yLen * xLen + j * xLen + i]
@@ -777,10 +783,27 @@ export default class VolumeRenderer3d {
                                                     + array[(k + 1) * yLen * xLen + j * xLen + i + 1]
                                                     + array[(k + 1) * yLen * xLen + (j + 1) * xLen + i]
                                                     + array[(k + 1) * yLen * xLen + (j + 1) * xLen + i + 1]) / 8.;
+          if (Number.isNaN(shrinked[kk * yDim * xDim + jj * xDim + ii])) {
+            console.log("Error: NaN at arrayShrink!")
+          }
+          ii += 1;
         }
+        ii = 0
+        jj += 1;
       }
+      jj = 0
+      kk += 1;
     }
     return shrinked;
+  }
+  check(arr) {
+    var counter = 0;
+    for (let i = 0; i < arr.length; i++) {
+      if(arr[i] != 0) {
+        counter++;
+      }
+    }
+    return counter;
   }
   /**
          * Create geometry and materials for 3D rendering
@@ -813,7 +836,13 @@ export default class VolumeRenderer3d {
     this.vol3 = this.arrayShrink(this.vol2, this.volume.m_xDim / 8, this.volume.m_yDim / 8, this.volume.m_zDim / 8);
     console.log("vol3 processed successfully!");
     console.log(Date.now());
-    
+
+    console.log("start check");
+    console.log(this.check(this.volume.m_dataArray));
+    console.log(this.check(this.vol1));
+    console.log(this.check(this.vol2));
+    console.log(this.check(this.vol3));
+    console.log("start check");   
     
 
     // remove old sphere

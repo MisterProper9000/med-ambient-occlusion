@@ -413,6 +413,7 @@ vec3 CalcLighting(vec3 iter, vec3 dir)
   float tAO = tex3DvolAO(iter);
   //  vec3 col = (0.5*(brightness3D + 1.5)*(DIFFUSE * dif * 0.5*(1.0 + tAO)  + AMBIENT * tAO) + SPEC * specular * tAO) * sumCol;
   vec3 col = (0.5*(brightness3D + 1.5)*(DIFFUSE * dif + AMBIENT) + SPEC * specular) * sumCol * tAO;
+  col = tex3DvolAO(iter) * vec3(1.0);
   return col;
 #else
   vec3 col = (0.5*(brightness3D + 1.5)*(DIFFUSE * dif + AMBIENT) + SPEC * specular) * sumCol;
@@ -841,6 +842,7 @@ void main() {
     
     return;
   }
+  /*
   if (length(iso1.rgb - iso2.rgb) < delta && length(iso1.rgb - iso3.rgb) < delta && length(iso1.rgb - iso4.rgb) < delta)
   {
     // The color of the pixel is calculated by bilinear interpolation of colors of neighboring texels
@@ -848,6 +850,7 @@ void main() {
     gl_FragColor = acc;
     return;
   }
+  */
   // Direct volume render
  #if isoRenderFlag==0
   {
