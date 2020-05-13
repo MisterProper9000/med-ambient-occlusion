@@ -248,6 +248,7 @@ export default class AmbientTexture {
     return final_sum; //1.0 / (1.0 + Math.pow(Math.E, -10.0 * (final_sum - 0.5)));
   }
   setAmbientTextureWebGL2() {
+    var start = Date.now();
     //DEFAULT AO
     const VAL_4 = 4;
     const frameBuf = new Uint8Array(VAL_4 * this.xDimAO * this.yDimAO);
@@ -257,7 +258,7 @@ export default class AmbientTexture {
       this.materialAO.uniforms.curZ.value = z / (this.zDimAO - 1);
       this.materialAO.uniforms.curZ.needsUpdate = true;
       this.sceneBlur.overrideMaterial = this.materialAO;
-      //this.rendererBlur.render(this.sceneBlur, this.cameraOrtho, this.bufferTextureAO);
+      this.rendererBlur.render(this.sceneBlur, this.cameraOrtho, this.bufferTextureAO);
       this.sceneBlur.overrideMaterial = null;
       gl.readPixels(0, 0, this.xDimAO, this.yDimAO, gl.RGBA, gl.UNSIGNED_BYTE, frameBuf);
       const zOffs = z * this.xDimAO * this.yDimAO;
@@ -265,13 +266,10 @@ export default class AmbientTexture {
         for (let x = 0; x < this.xDimAO; x++) {
           this.ambientVolumeTexCPU[x + y * this.xDimAO + zOffs] = 
             frameBuf[VAL_4 * (x + y * this.xDimAO)]; //256.0 * k / this.zDim;
-          if (frameBuf[VAL_4 * (x + y * this.xDimAO)] != 0) {
-
-          }
         }
       }
     }
-    console.log('AO WebGL2 End');     
+    console.log('AO WebGL2 End', Date.now() - start);     
   }
   //MY AO
     /*
@@ -290,13 +288,13 @@ export default class AmbientTexture {
       for (let y = 0; y < this.yDimAO; y++) {
         for (let x = 0; x < this.xDimAO; x++) {
           //var a = 255.0 - 255.0 * this.IAO(x, y, z, 1);
-          this.ambientVolumeTexCPU[x + y * this.xDimAO + zOffs] = 255.0 - 255.0 * this.IAO(x, y, z, 1);
+          this.ambientVolumeTexCPU[x + y * this.xDimAO + zOffs] = 255.0 - 255.0 * this.IAO(x, y, z, 0);
             // * frameBuf[VAL_4 * (x + y * this.xDimAO)]; 
             //256.0 * x / this.zDim;
         }
       }
     }
-    console.log('AO WebGL2 End');
+    console.log('AO WebGL2 End', Date.now() - start);
   }*/
   //OUTDATED MY AO
     /*
