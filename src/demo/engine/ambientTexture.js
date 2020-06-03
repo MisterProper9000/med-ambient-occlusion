@@ -17,6 +17,8 @@ export default class AmbientTexture {
     this.zDim = inParams.zDim;
     this.texVolumeAO = null;
     this.vectorsTex = null;
+    this.prevSum = 0;
+    this.prevVolume = 0;
   }
   _setAOVectorTex() {
     const VAL_4 = 4;
@@ -60,6 +62,8 @@ export default class AmbientTexture {
     this.vol2 = vol2;
     this.vol3 = vol3;
 
+    this.isoThreshold = isoThreshold;
+
     this.bufferTextureAO = new THREE.WebGLRenderTarget(this.xDimAO,
       this.yDimAO, {
         minFilter: THREE.LinearFilter,
@@ -97,26 +101,44 @@ export default class AmbientTexture {
   hemiSphereProceed(normal, center_x, center_y, center_z, radius, arr, divider) {
     var volume = 0;
     var sum = 0;
-    for (let i = Math.max(0, center_x - radius); i <= Math.min(Math.floor(this.xDim / divider) - 1, center_x + radius); i++) {
-      for (let j = Math.max(0, center_y - radius); j <= Math.min(Math.floor(this.yDim / divider) - 1, center_y + radius); j++) {
-        for (let k = Math.max(0, center_z - radius); k <= Math.min(Math.floor(this.zDim / divider) - 1, center_z + radius); k++) {
+    const _i_ = center_x - radius;
+    const _I_ = center_x + radius;
+    const _j_ = center_y - radius;
+    const _J_ = center_y + radius;
+    const _k_ = center_z - radius;
+    const _K_ = center_z + radius;
+    const radius2 = radius * radius;
+    const xy = Math.floor(this.yDim / divider * this.xDim / divider);
+    const x = Math.floor(this.xDim / divider);
+
+    for (let i = _i_; i <= _I_; i++) {
+      for (let j = _j_; j <= _J_; j++) {
+        for (let k = _k_; k <= _K_; k++) {
           if ((i - center_x) * normal[0] + (j - center_y) * normal[1] + (k - center_z) * normal[2] >= 0) {
             if ((center_x - i) * (center_x - i) + 
               (center_y - j) * (center_y - j) +
-              (center_z - k) * (center_z - k) <= radius * radius) {
-              sum += Math.sign(arr[k * Math.floor(this.yDim / divider * this.xDim / divider) + j * Math.floor(this.xDim / divider) + i]);
+              (center_z - k) * (center_z - k) <= radius2) {
+              if (typeof arr[k * xy + j * x + i] !== 'undefined') {
+                sum += Math.sign(arr[k * xy + j * x + i]);
+              }
               if(Number.isNaN(sum)){
                 console.log("nan at array with length", Math.floor(this.xDim / divider * this.yDim / divider * this.zDim / divider));
               }
+              volume++;
             }
-            volume++;
           }
         }
       }
     }
-    //if (sum != 0 && volume != 0){
-    //  console.log("sas,", sum, volume);
-    //}
+
+    /*var tmp_vol = volume;
+    volume -= this.prevVolume / 8.0;
+    this.prevVolume = tmp_vol;
+
+    var tmp_sum = sum;
+    sum = Math.max(0, this.prevSum / 8.0);
+    this.prevSum = tmp_sum;*/
+    
     if (volume == 0) {
       return 0;
     }
@@ -125,132 +147,345 @@ export default class AmbientTexture {
   sphereProceed(center_x, center_y, center_z, radius, arr, divider) {
     var volume = 0;
     var sum = 0;
-    for (let i = Math.max(0, center_x - radius); i <= Math.min(Math.floor(this.xDim / divider) - 1, center_x + radius); i++) {
-      for (let j = Math.max(0, center_y - radius); j <= Math.min(Math.floor(this.yDim / divider) - 1, center_y + radius); j++) {
-        for (let k = Math.max(0, center_z - radius); k <= Math.min(Math.floor(this.zDim / divider) - 1, center_z + radius); k++) {
+    const _i_ = center_x - radius;
+    const _I_ = center_x + radius;
+    const _j_ = center_y - radius;
+    const _J_ = center_y + radius;
+    const _k_ = center_z - radius;
+    const _K_ = center_z + radius;
+    const radius2 = radius * radius;
+    const xy = Math.floor(this.yDim / divider * this.xDim / divider);
+    const x = Math.floor(this.xDim / divider);
+    
+    for (let i = _i_; i <= _I_; i++) {
+      for (let j = _j_; j <= _J_; j++) {
+        for (let k = _k_; k <= _K_; k++) {
           if ((center_x - i) * (center_x - i) + 
             (center_y - j) * (center_y - j) +
-            (center_z - k) * (center_z - k) <= radius * radius) {
-            sum += Math.sign(arr[k * Math.floor(this.yDim / divider * this.xDim / divider) + j * Math.floor(this.xDim / divider) + i]);
+            (center_z - k) * (center_z - k) <= radius2) {
+            if (typeof arr[k * xy  + j * x + i] !== 'undefined') {
+              sum += (arr[k * xy + j * x + i] < 255 * this.isoThreshold) ? 1 : 0;
+            }
             if(Number.isNaN(sum)){
               console.log("nan at array with length", Math.floor(this.xDim / divider * this.yDim / divider * this.zDim / divider));
             }
+            volume++;
           }
-          volume++;
         }
       }
     }
+
+    /*var tmp_vol = volume;
+    volume = 8 * volume - this.prevVolume;
+    this.prevVolume = tmp_vol;
+
+    var tmp_sum = sum;
+    sum = 8 * sum - this.prevSum;
+    this.prevSum = tmp_sum;/*
+
+    /*if (volume < 0 || sum < 0) {
+      console.log(volume, sum, this.prevSum, divider);
+    }*/
+
+    //console.log(volume);
+
     if (volume == 0) {
       return 0;
     }
     return sum / parseFloat(volume);
   }
+  cubeProceed(center_x, center_y, center_z, radius, arr, divider) {
+    var volume = 0;
+    var sum = 0;
+    const _i_ = center_x - radius;
+    const _I_ = center_x + radius;
+    const _j_ = center_y - radius;
+    const _J_ = center_y + radius;
+    const _k_ = center_z - radius;
+    const _K_ = center_z + radius;
+    const xy = Math.floor(this.yDim / divider * this.xDim / divider);
+    const x = Math.floor(this.xDim / divider);
+    
+    for (let i = _i_; i <= _I_; i++) {
+      for (let j = _j_; j <= _J_; j++) {
+        for (let k = _k_; k <= _K_; k++) {
+          if (typeof arr[k * xy  + j * x + i] !== 'undefined') {
+            sum += Math.sign(arr[k * xy + j * x + i]);
+          }
+          if(Number.isNaN(sum)){
+            console.log("nan at array with length", Math.floor(this.xDim / divider * this.yDim / divider * this.zDim / divider));
+          }
+          volume++;          
+        }
+      }
+    }
+
+    /*var tmp_vol = volume;
+    volume = 8 * volume - this.prevVolume;
+    this.prevVolume = tmp_vol;
+
+    var tmp_sum = sum;
+    sum = 8 * sum - this.prevSum;
+    this.prevSum = tmp_sum;/*
+
+    /*if (volume < 0 || sum < 0) {
+      console.log(volume, sum, this.prevSum, divider);
+    }*/
+
+    //console.log(volume);
+
+    if (volume == 0) {
+      return 0;
+    }
+    return sum / parseFloat(volume);
+  }
+  /* dead end attempt */
+  sphereProceedVal(center_x, center_y, center_z, radius, arr, divider) {
+    var volume = 0;
+    var sum = 0;
+    const _i_ = center_x - radius;
+    const _I_ = center_x + radius;
+    const _j_ = center_y - radius;
+    const _J_ = center_y + radius;
+    const _k_ = center_z - radius;
+    const _K_ = center_z + radius;
+    const radius2 = radius * radius;
+    const xy = Math.floor(this.yDim / divider * this.xDim / divider);
+    const x = Math.floor(this.xDim / divider);
+    
+    for (let i = _i_; i <= _I_; i++) {
+      for (let j = _j_; j <= _J_; j++) {
+        for (let k = _k_; k <= _K_; k++) {
+          if ((center_x - i) * (center_x - i) + 
+            (center_y - j) * (center_y - j) +
+            (center_z - k) * (center_z - k) <= radius2) {
+            if (typeof arr[k * xy  + j * x + i] !== 'undefined') {
+              sum += arr[k * xy + j * x + i];
+            }
+            if(Number.isNaN(sum)){
+              console.log("nan at array with length", Math.floor(this.xDim / divider * this.yDim / divider * this.zDim / divider));
+            }
+            volume++;
+          }
+        }
+      }
+    }
+    /*if (divider != 1) {
+      var average = 8 * sum / parseFloat(255 * volume);
+      var prevAverage = this.prevSum / parseFloat(255 * this.prevVolume);
+      var shellAverage = volume * average - this.prevVolume * prevAverage;
+    }
+    this.prevSum = 8 * sum;
+    this.prevVolume = volume;*/
+
+    /*if (volume < 0 || sum < 0) {
+      console.log(volume, sum, this.prevSum, divider);
+    }*/
+
+    //console.log(volume);
+
+    if (volume == 0) {
+      return 0;
+    }
+    return sum / parseFloat(255 * volume);
+  }
   /**
    * mode: 0 - sphereProceed used
-   *       otherwise - hemiSphereProceed
+   *       1 - hemiSphereProceed
+   *       2 - shifted hemiSphereProceed
+   *       3 - cubeProceed
+   *       4 - sphereProceedVal
    */
-  IAO(x, y, z, mode) {
+  IAO(x, y, z, mode, cubeModeShiftKoef = 1, koef_arr = [1,1,1,1,1]) {
+    this.prevSum = 0;
+    this.prevVolume = 0;
     var normal = new Array(3);
-    normal[0] = this.vol[z * this.yDim * this.xDim + y * this.xDim + x - 1] - 
-      this.vol[z * this.yDim * this.xDim + y * this.xDim + x + 1];
-    normal[1] = this.vol[z * this.yDim * this.xDim + (y - 1) * this.xDim + x] - 
-      this.vol[z * this.yDim * this.xDim + (y + 1) * this.xDim + x];
-    normal[2] = this.vol[(z - 1) * this.yDim * this.xDim + y * this.xDim + x] - 
-      this.vol[(z + 1) * this.yDim * this.xDim + y * this.xDim + x];
+    var a = this.vol[z * this.yDim * this.xDim + y * this.xDim + x - 1];
+    var b = this.vol[z * this.yDim * this.xDim + y * this.xDim + x + 1];
+    normal[0] = ((typeof a === 'undefined') ? 0 : a) - ((typeof b === 'undefined') ? 0 : b)
+    a = this.vol[z * this.yDim * this.xDim + (y - 1) * this.xDim + x];
+    b = this.vol[z * this.yDim * this.xDim + (y + 1) * this.xDim + x];
+    normal[1] = ((typeof a === 'undefined') ? 0 : a) - ((typeof b === 'undefined') ? 0 : b)
+    a = this.vol[(z - 1) * this.yDim * this.xDim + y * this.xDim + x];
+    b = this.vol[(z + 1) * this.yDim * this.xDim + y * this.xDim + x];
+    normal[2] = ((typeof a === 'undefined') ? 0 : a) - ((typeof b === 'undefined') ? 0 : b)
+    
     var norm = Math.sqrt(normal[0] * normal[0] + normal[1] * normal[1] + normal[2] * normal[2]);
     if (Number.isNaN(normal[0]) || Number.isNaN(normal[1]) || Number.isNaN(normal[2]) ||
       Number.isNaN(norm) || norm == 0){
       return 0;
     }
+
     normal[0] /= norm;
     normal[1] /= norm;
     normal[2] /= norm;
+    
     var radius = 2
     var final_sum = 0;
     var center_x;
     var center_y;
     var center_z;
-    //var total_size = 0
-    for (; radius < 4; radius *= 2) {
-      if (mode == 0) {
-        center_x = Math.round(x + radius * normal[0]);
-        center_y = Math.round(y + radius * normal[1]);
-        center_z = Math.round(z + radius * normal[2]);
-      }
-      if (mode == 0) {
-        final_sum += this.sphereProceed(center_x, center_y, center_z, radius, this.vol, 1);
-      }
-      else {
-        final_sum += this.hemiSphereProceed(normal, x, y, z, radius, this.vol, 1);
-      }
+
+    /*-1------------------------------------------------------------------------*/
+
+    if (mode == 0 || mode == 4) {
+      center_x = Math.ceil(x + radius * normal[0]);
+      center_y = Math.ceil(y + radius * normal[1]);
+      center_z = Math.ceil(z + radius * normal[2]);
+    }
+    if (mode == 3) {
+      center_x = Math.ceil(x + cubeModeShiftKoef * radius * normal[0]);
+      center_y = Math.ceil(y + cubeModeShiftKoef * radius * normal[1]);
+      center_z = Math.ceil(z + cubeModeShiftKoef * radius * normal[2]);      
+    }
+    if (mode == 0) {
+      final_sum += koef_arr[0] * this.sphereProceed(center_x, center_y, center_z, radius, this.vol, 1);
+    }
+    else if (mode == 1) {
+      final_sum += koef_arr[0] * this.hemiSphereProceed(normal, x, y, z, radius, this.vol, 1);
+    }
+    else if (mode == 2) {
+      final_sum += koef_arr[0] * this.hemiSphereProceed(normal, Math.round(normal[0] + x), Math.round(normal[1] + y ), Math.round(normal[2] + z), radius, this.vol, 1);
+    }
+    else if (mode == 3) {
+      final_sum += koef_arr[0] * this.cubeProceed(center_x, center_y, center_z, radius, this.vol, 1)
+    }
+    else if (mode == 4) {
+      final_sum += koef_arr[0] * this.sphereProceedVal(center_x, center_y, center_z, radius, this.vol, 1);
+    }
+    else {
+      console.log("unknown mode in ambientTexture.IAO");
+      return 0;
     }
 
-    //radius *= 2;
+    /*-2------------------------------------------------------------------------*/
+
     x = Math.floor(x / 2);
     y = Math.floor(y / 2);
     z = Math.floor(z / 2);
-    if (mode == 0) {
-      center_x = Math.round(x + radius * normal[0]);
-      center_y = Math.round(y + radius * normal[1]);
-      center_z = Math.round(z + radius * normal[2]);
+    if (mode == 0 || mode == 4) {
+      center_x = Math.ceil(x + radius * normal[0]);
+      center_y = Math.ceil(y + radius * normal[1]);
+      center_z = Math.ceil(z + radius * normal[2]);
+    }
+    if (mode == 3) {
+      center_x = Math.ceil(x + cubeModeShiftKoef * radius * normal[0]);
+      center_y = Math.ceil(y + cubeModeShiftKoef * radius * normal[1]);
+      center_z = Math.ceil(z + cubeModeShiftKoef * radius * normal[2]);      
     }
     if (mode == 0) {
-      final_sum += this.sphereProceed(center_x, center_y, center_z, radius, this.vol1, 2);
+      final_sum += koef_arr[1] * this.sphereProceed(center_x, center_y, center_z, radius, this.vol1, 2);
+    }
+    else if (mode == 1) {
+      final_sum += koef_arr[1] * this.hemiSphereProceed(normal, x, y, z, radius, this.vol1, 2);
+    }
+    else if (mode == 2) {
+      final_sum += koef_arr[1] * this.hemiSphereProceed(normal, Math.round(normal[0] + x), Math.round(normal[1] + y ), Math.round(normal[2] + z), radius, this.vol1, 2);
+    }
+    else if (mode == 3) {
+      final_sum += koef_arr[1] * this.cubeProceed(center_x, center_y, center_z, radius, this.vol1, 2)
+    }
+    else if (mode == 4) {
+      final_sum += koef_arr[1] * this.sphereProceedVal(center_x, center_y, center_z, radius, this.vol1, 2);
     }
     else {
-      final_sum += this.hemiSphereProceed(normal, x, y, z, radius, this.vol1, 2);
+      console.log("unknown mode in ambientTexture.IAO");
+      return 0;
     }
-    
 
-    //radius *= 2;
+    /*-3------------------------------------------------------------------------*/
+
     x = Math.floor(x / 2);
     y = Math.floor(y / 2);
     z = Math.floor(z / 2);
-    if (mode == 0) {
-      center_x = Math.round(x + radius * normal[0]);
-      center_y = Math.round(y + radius * normal[1]);
-      center_z = Math.round(z + radius * normal[2]);
+    if (mode == 0 || mode == 4) {
+      center_x = Math.ceil(x + radius * normal[0]);
+      center_y = Math.ceil(y + radius * normal[1]);
+      center_z = Math.ceil(z + radius * normal[2]);
+    }
+    if (mode == 3) {
+      center_x = Math.ceil(x + cubeModeShiftKoef * radius * normal[0]);
+      center_y = Math.ceil(y + cubeModeShiftKoef * radius * normal[1]);
+      center_z = Math.ceil(z + cubeModeShiftKoef * radius * normal[2]);      
     }
     if (mode == 0) {
-      final_sum += this.sphereProceed(center_x, center_y, center_z, radius, this.vol2, 4);
+      final_sum += koef_arr[2] * this.sphereProceed(center_x, center_y, center_z, radius, this.vol2, 4);
+    }
+    else if (mode == 1) {
+      final_sum += koef_arr[2] * this.hemiSphereProceed(normal, x, y, z, radius, this.vol2, 4);
+    }
+    else if (mode == 2) {
+      final_sum += koef_arr[2] * this.hemiSphereProceed(normal, Math.round(normal[0] + x), Math.round(normal[1] + y ), Math.round(normal[2] + z), radius, this.vol2, 4);
+    }
+    else if (mode == 3) {
+      final_sum += koef_arr[2] * this.cubeProceed(center_x, center_y, center_z, radius, this.vol2, 4)
+    }
+    else if (mode == 4) {
+      final_sum += koef_arr[2] * this.sphereProceedVal(center_x, center_y, center_z, radius, this.vol2, 4);
     }
     else {
-      //final_sum += this.hemiSphereProceed(normal, x, y, z, radius, this.vol2, 4);
+      console.log("unknown mode in ambientTexture.IAO");
+      return 0;
     }
 
-    //radius *= 2;
+    /*-4------------------------------------------------------------------------*/
+
     x = Math.floor(x / 2);
     y = Math.floor(y / 2);
     z = Math.floor(z / 2);
-    if (mode == 0) {
-      center_x = Math.round(x + radius * normal[0]);
-      center_y = Math.round(y + radius * normal[1]);
-      center_z = Math.round(z + radius * normal[2]);
+    if (mode == 0 || mode == 4) {
+      center_x = Math.ceil(x + radius * normal[0]);
+      center_y = Math.ceil(y + radius * normal[1]);
+      center_z = Math.ceil(z + radius * normal[2]);
+    }
+    if (mode == 3) {
+      center_x = Math.ceil(x + cubeModeShiftKoef * radius * normal[0]);
+      center_y = Math.ceil(y + cubeModeShiftKoef * radius * normal[1]);
+      center_z = Math.ceil(z + cubeModeShiftKoef * radius * normal[2]);      
     }
     if (mode == 0) {
-      final_sum += this.sphereProceed(center_x, center_y, center_z, radius, this.vol3, 8);
-      final_sum /= 5;
+      final_sum += koef_arr[3] * this.sphereProceed(center_x, center_y, center_z, radius, this.vol3, 8);
+      final_sum /= 4;
+    }
+    else if (mode == 1) {
+      final_sum += koef_arr[3] * this.hemiSphereProceed(normal, x, y, z, radius, this.vol3, 8);
+      final_sum /= 4;
+    }
+    else if (mode == 2) {
+      final_sum += koef_arr[3] * this.hemiSphereProceed(normal, Math.round(normal[0] + x), Math.round(normal[1] + y ), Math.round(normal[2] + z), radius, this.vol3, 8);
+      final_sum /= 4;
+    }
+    else if (mode == 3) {
+      final_sum += koef_arr[3] * this.cubeProceed(center_x, center_y, center_z, radius, this.vol3, 8)
+      final_sum /= 4;
+    }
+    else if (mode == 4) {
+      final_sum += koef_arr[3] * this.sphereProceedVal(center_x, center_y, center_z, radius, this.vol3, 8);
+      final_sum /= 4;
     }
     else {
-      //final_sum += this.hemiSphereProceed(normal, x, y, z, radius, this.vol3, 8);
-      final_sum /= 3;
+      console.log("unknown mode in ambientTexture.IAO");
+      return 0;
     }
+    this.prevSum = 0;
+    this.prevVolume = 0;
+
+    /*-end------------------------------------------------------------------------*/
     
     if(final_sum > 255) {
       console.log("overfill!", x, y, z)
     }
-    if (final_sum >= 1) {
-      console.log(final_sum);
+    if (final_sum > 1) {
+      final_sum = 1;
+      //console.log("over 1!", final_sum);
     }
-    if(final_sum != 0){
-      return final_sum;
-    }
-    return final_sum; //1.0 / (1.0 + Math.pow(Math.E, -10.0 * (final_sum - 0.5)));
+    return final_sum;
   }
-  setAmbientTextureWebGL2() {
+  setAmbientTextureWebGL2() {    
+    console.log('AO WebGL2');
     var start = Date.now();
     //DEFAULT AO
-    const VAL_4 = 4;
+    /*const VAL_4 = 4;
     const frameBuf = new Uint8Array(VAL_4 * this.xDimAO * this.yDimAO);
     const gl = this.rendererBlur.getContext();
     console.log('AO WebGL2');
@@ -270,13 +505,13 @@ export default class AmbientTexture {
       }
     }
     console.log('AO WebGL2 End', Date.now() - start);     
-  }
+  }*/
   //MY AO
-    /*
+    
     //const VAL_4 = 4;
     //const frameBuf = new Uint8Array(VAL_4 * this.xDimAO * this.yDimAO);
     //const gl = this.rendererBlur.getContext();
-    console.log('AO WebGL2');
+    
     for (let z = 0; z < this.zDimAO; ++z) {
       this.materialAO.uniforms.curZ.value = z / (this.zDimAO - 1);
       this.materialAO.uniforms.curZ.needsUpdate = true;
@@ -288,14 +523,19 @@ export default class AmbientTexture {
       for (let y = 0; y < this.yDimAO; y++) {
         for (let x = 0; x < this.xDimAO; x++) {
           //var a = 255.0 - 255.0 * this.IAO(x, y, z, 1);
-          this.ambientVolumeTexCPU[x + y * this.xDimAO + zOffs] = 255.0 - 255.0 * this.IAO(x, y, z, 0);
+          /*if (this.vol[z * this.yDim * this.xDim + y * this.xDim + x] == 0) {
+            this.ambientVolumeTexCPU[x + y * this.xDimAO + zOffs] = 0;
+            continue;
+          }*/
+          this.ambientVolumeTexCPU[x + y * this.xDimAO + zOffs] = 255.0 * this.IAO(x, y, z, 0); //[1,1,1,0.5]
+                                                                                         //x, y, z, 4, 1, [1,5,1,1]
             // * frameBuf[VAL_4 * (x + y * this.xDimAO)]; 
             //256.0 * x / this.zDim;
         }
       }
     }
     console.log('AO WebGL2 End', Date.now() - start);
-  }*/
+  }
   //OUTDATED MY AO
     /*
     //const VAL_4 = 4;
