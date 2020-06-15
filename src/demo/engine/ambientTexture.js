@@ -119,7 +119,7 @@ export default class AmbientTexture {
               (center_y - j) * (center_y - j) +
               (center_z - k) * (center_z - k) <= radius2) {
               if (typeof arr[k * xy + j * x + i] !== 'undefined') {
-                sum += Math.sign(arr[k * xy + j * x + i]);
+                sum += (arr[k * xy + j * x + i] < 255 * this.isoThreshold) ? 1 : 0;
               }
               if(Number.isNaN(sum)){
                 console.log("nan at array with length", Math.floor(this.xDim / divider * this.yDim / divider * this.zDim / divider));
@@ -210,7 +210,7 @@ export default class AmbientTexture {
       for (let j = _j_; j <= _J_; j++) {
         for (let k = _k_; k <= _K_; k++) {
           if (typeof arr[k * xy  + j * x + i] !== 'undefined') {
-            sum += Math.sign(arr[k * xy + j * x + i]);
+            sum += (arr[k * xy + j * x + i] < 255 * this.isoThreshold) ? 1 : 0;
           }
           if(Number.isNaN(sum)){
             console.log("nan at array with length", Math.floor(this.xDim / divider * this.yDim / divider * this.zDim / divider));
@@ -294,9 +294,9 @@ export default class AmbientTexture {
    *       1 - hemiSphereProceed
    *       2 - shifted hemiSphereProceed
    *       3 - cubeProceed
-   *       4 - sphereProceedVal
+   *       4 - sphereProceedVal (useless)
    */
-  IAO(x, y, z, mode, cubeModeShiftKoef = 1, koef_arr = [1,1,1,1,1]) {
+  IAO(x, y, z, mode, iter_count = 4, cubeModeShiftKoef = 1, koef_arr = [1,1,1,1,1]) {
     this.prevSum = 0;
     this.prevVolume = 0;
     var normal = new Array(3);
@@ -328,15 +328,10 @@ export default class AmbientTexture {
 
     /*-1------------------------------------------------------------------------*/
 
-    if (mode == 0 || mode == 4) {
-      center_x = Math.ceil(x + radius * normal[0]);
-      center_y = Math.ceil(y + radius * normal[1]);
-      center_z = Math.ceil(z + radius * normal[2]);
-    }
-    if (mode == 3) {
+    if (mode == 0 || mode == 4 || mode == 3) {
       center_x = Math.ceil(x + cubeModeShiftKoef * radius * normal[0]);
       center_y = Math.ceil(y + cubeModeShiftKoef * radius * normal[1]);
-      center_z = Math.ceil(z + cubeModeShiftKoef * radius * normal[2]);      
+      center_z = Math.ceil(z + cubeModeShiftKoef * radius * normal[2]); 
     }
     if (mode == 0) {
       final_sum += koef_arr[0] * this.sphereProceed(center_x, center_y, center_z, radius, this.vol, 1);
@@ -358,20 +353,21 @@ export default class AmbientTexture {
       return 0;
     }
 
+    if (iter_count == 1) {
+      this.prevSum = 0;
+      this.prevVolume = 0;
+      return final_sum
+    }
+
     /*-2------------------------------------------------------------------------*/
 
     x = Math.floor(x / 2);
     y = Math.floor(y / 2);
     z = Math.floor(z / 2);
-    if (mode == 0 || mode == 4) {
-      center_x = Math.ceil(x + radius * normal[0]);
-      center_y = Math.ceil(y + radius * normal[1]);
-      center_z = Math.ceil(z + radius * normal[2]);
-    }
-    if (mode == 3) {
+    if (mode == 0 || mode == 4 || mode == 3) {
       center_x = Math.ceil(x + cubeModeShiftKoef * radius * normal[0]);
       center_y = Math.ceil(y + cubeModeShiftKoef * radius * normal[1]);
-      center_z = Math.ceil(z + cubeModeShiftKoef * radius * normal[2]);      
+      center_z = Math.ceil(z + cubeModeShiftKoef * radius * normal[2]); 
     }
     if (mode == 0) {
       final_sum += koef_arr[1] * this.sphereProceed(center_x, center_y, center_z, radius, this.vol1, 2);
@@ -393,20 +389,21 @@ export default class AmbientTexture {
       return 0;
     }
 
+    if (iter_count == 2) {
+      this.prevSum = 0;
+      this.prevVolume = 0;
+      return final_sum / 2
+    }
+
     /*-3------------------------------------------------------------------------*/
 
     x = Math.floor(x / 2);
     y = Math.floor(y / 2);
     z = Math.floor(z / 2);
-    if (mode == 0 || mode == 4) {
-      center_x = Math.ceil(x + radius * normal[0]);
-      center_y = Math.ceil(y + radius * normal[1]);
-      center_z = Math.ceil(z + radius * normal[2]);
-    }
-    if (mode == 3) {
+    if (mode == 0 || mode == 4 || mode == 3) {
       center_x = Math.ceil(x + cubeModeShiftKoef * radius * normal[0]);
       center_y = Math.ceil(y + cubeModeShiftKoef * radius * normal[1]);
-      center_z = Math.ceil(z + cubeModeShiftKoef * radius * normal[2]);      
+      center_z = Math.ceil(z + cubeModeShiftKoef * radius * normal[2]); 
     }
     if (mode == 0) {
       final_sum += koef_arr[2] * this.sphereProceed(center_x, center_y, center_z, radius, this.vol2, 4);
@@ -428,45 +425,42 @@ export default class AmbientTexture {
       return 0;
     }
 
+    if (iter_count == 3) {
+      this.prevSum = 0;
+      this.prevVolume = 0;
+      return final_sum / 3
+    }
+
     /*-4------------------------------------------------------------------------*/
 
     x = Math.floor(x / 2);
     y = Math.floor(y / 2);
     z = Math.floor(z / 2);
-    if (mode == 0 || mode == 4) {
-      center_x = Math.ceil(x + radius * normal[0]);
-      center_y = Math.ceil(y + radius * normal[1]);
-      center_z = Math.ceil(z + radius * normal[2]);
-    }
-    if (mode == 3) {
+    if (mode == 0 || mode == 4 || mode == 3) {
       center_x = Math.ceil(x + cubeModeShiftKoef * radius * normal[0]);
       center_y = Math.ceil(y + cubeModeShiftKoef * radius * normal[1]);
-      center_z = Math.ceil(z + cubeModeShiftKoef * radius * normal[2]);      
+      center_z = Math.ceil(z + cubeModeShiftKoef * radius * normal[2]); 
     }
     if (mode == 0) {
       final_sum += koef_arr[3] * this.sphereProceed(center_x, center_y, center_z, radius, this.vol3, 8);
-      final_sum /= 4;
     }
     else if (mode == 1) {
       final_sum += koef_arr[3] * this.hemiSphereProceed(normal, x, y, z, radius, this.vol3, 8);
-      final_sum /= 4;
     }
     else if (mode == 2) {
       final_sum += koef_arr[3] * this.hemiSphereProceed(normal, Math.round(normal[0] + x), Math.round(normal[1] + y ), Math.round(normal[2] + z), radius, this.vol3, 8);
-      final_sum /= 4;
     }
     else if (mode == 3) {
       final_sum += koef_arr[3] * this.cubeProceed(center_x, center_y, center_z, radius, this.vol3, 8)
-      final_sum /= 4;
     }
     else if (mode == 4) {
       final_sum += koef_arr[3] * this.sphereProceedVal(center_x, center_y, center_z, radius, this.vol3, 8);
-      final_sum /= 4;
     }
     else {
       console.log("unknown mode in ambientTexture.IAO");
       return 0;
     }
+    final_sum /= 4;
     this.prevSum = 0;
     this.prevVolume = 0;
 
@@ -527,7 +521,7 @@ export default class AmbientTexture {
             this.ambientVolumeTexCPU[x + y * this.xDimAO + zOffs] = 0;
             continue;
           }*/
-          this.ambientVolumeTexCPU[x + y * this.xDimAO + zOffs] = 255.0 * this.IAO(x, y, z, 0); //[1,1,1,0.5]
+          this.ambientVolumeTexCPU[x + y * this.xDimAO + zOffs] = 255.0 * this.IAO(x, y, z,2, 4); //[1,1,1,0.5]
                                                                                          //x, y, z, 4, 1, [1,5,1,1]
             // * frameBuf[VAL_4 * (x + y * this.xDimAO)]; 
             //256.0 * x / this.zDim;
